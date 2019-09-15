@@ -17,10 +17,12 @@ critic_model = tf.keras.models.Sequential([
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(running_add,r, gamma = 0.99):
+def discount_normalize_rewards(dones,r, gamma = 0.99):
     discounted_r = np.zeros_like(r)
-    # running_add = 0
+    running_add = 0
     for t in reversed(range(0, r.size)):
+        if(dones[t]==1):
+          running_add=0
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
         # print(discounted_r)
@@ -71,17 +73,16 @@ def train(buff):
     
     # actor_model.train_on_batch(previous_states, advantages)
     # critic_model.train_on_batch(previous_states, real_previous_values)
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=len(buff))
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=len(buff))
+    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=32)
+    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=32)
     
     
-	
+episode_memory=[]
+dones=[]
 for e in range(episodes):
   state = env.reset()
   episode_score = 0
-  episode_memory=[]
   done = False
-  replay_buffer=[]
   running_add=0
   while not done:
     state = state.reshape([1,4])
@@ -94,18 +95,19 @@ for e in range(episodes):
     next_state, reward, done, _ = env.step(a)
     next_state = next_state.reshape([1,4])
     episode_score +=reward
-
-    if done and not(episode_score==max_score):
-    	running_add=-30
-
+    dones.append(done)
+    # if done and not(episode_score==max_score):
+    # 	running_add=-30
+   
     episode_memory.append([state, a, reward, next_state,done])
-    if (len(episode_memory)==batch_size or done):
+    if (len(episode_memory)==batch_size):
       # running_add=critic_model(next_state)
       # running_add=running_add.numpy()[0][0]
       episode_memory=np.array(episode_memory)
-      episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
+      episode_memory[:,2] = discount_normalize_rewards(dones,episode_memory[:,2])
       train(episode_memory)
       episode_memory=[]
+      dones=[]
     state=next_state
   score+=episode_score
 

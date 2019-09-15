@@ -29,7 +29,7 @@ def discount_normalize_rewards(running_add,r, gamma = 0.99):
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-episodes = 1000
+episodes = 500
 score=0
 episode_n=[]
 mean_score=[]
@@ -58,8 +58,6 @@ def train(buff):
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
     advantages=np.array(advantages)
-    # print(advantages)
-    # exit()
     # actor_model.train_on_batch(previous_states, advantages)
     # critic_model.train_on_batch(previous_states, real_previous_values)
     actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=len(buff))

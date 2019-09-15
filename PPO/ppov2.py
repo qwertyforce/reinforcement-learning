@@ -70,7 +70,7 @@ def discount_normalize_rewards(running_add,r, gamma = 0.99):
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-env._max_episode_steps = 1000
+# env._max_episode_steps = 1000
 episodes = 500
 score=0
 episode_n=[]

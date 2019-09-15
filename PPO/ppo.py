@@ -102,12 +102,12 @@ def train(buff):
         advantage=real_previous_value - previous_state_predicted_value
         advantages.append(advantage)
     
-    # temp=[]
-    # gae=0
-    # for x in advantages:
-    #   delta=x
-    #   gae=delta+discount_factor*tau*gae
-    #   temp.append(gae)
+ 
+    # temp=advantages
+    # for t in reversed(range(len(temp) - 1)):
+    #   temp[t] = temp[t] + tau * temp[t + 1]
+    # print(temp)
+    # exit()
     # advantages=temp
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
