@@ -9,7 +9,7 @@ actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
   tf.keras.layers.Dense(2, activation='softmax')
 ])
-actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.001))
+actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.0015))
 
 critic_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
@@ -22,7 +22,6 @@ def discount_normalize_rewards(running_add,r, gamma = 0.99):
     for t in reversed(range(0, r.size)):
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
-        # print(discounted_r)
     discounted_r -= np.mean(discounted_r)
     discounted_r /= np.std(discounted_r)
     return discounted_r
@@ -58,8 +57,7 @@ def train(buff):
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
     advantages=np.array(advantages)
-    # actor_model.train_on_batch(previous_states, advantages)
-    # critic_model.train_on_batch(previous_states, real_previous_values)
+
     actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=len(buff))
     critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=len(buff))
     
@@ -76,8 +74,8 @@ for e in range(episodes):
     state = state.reshape([1,4])
     logits = actor_model(state)
     a_dist = logits.numpy()
-    # Choose random action with p = action 
-    a = np.random.choice(a_dist[0],p=a_dist[0])
+    
+    a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
     a=a[0]
     next_state, reward, done, _ = env.step(a)
@@ -106,5 +104,5 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
-fig.savefig("test2.png")
+fig.savefig("a2c_MC.png")
 plt.show()

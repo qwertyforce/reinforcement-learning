@@ -19,7 +19,7 @@ critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Ad
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-episodes = 1000
+episodes = 500
 score=0
 episode_n=[]
 mean_score=[]
@@ -63,8 +63,8 @@ for e in range(episodes):
     next_state, reward, done, _ = env.step(a)
     next_state = next_state.reshape([1,4])
     episode_score +=reward
-    if done and not(episode_score==max_score):
-    	reward=-30
+    # if done and not(episode_score==max_score):
+    # 	reward=-30
     train(state, a, reward, next_state, done)
     state=next_state
   score+=episode_score
@@ -80,5 +80,5 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
-fig.savefig("test.png")
+fig.savefig("a2c_TD.png")
 plt.show()

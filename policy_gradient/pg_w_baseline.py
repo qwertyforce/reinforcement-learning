@@ -4,49 +4,55 @@ import sys
 import tensorflow as tf 
 import matplotlib
 import matplotlib.pyplot as plt
-model = tf.keras.models.Sequential([
+actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
   tf.keras.layers.Dense(2, activation='softmax')
 ])
 
-model2 = tf.keras.models.Sequential([
+critic_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
-model.summary()
+actor_model.summary()
 episode_n=[]
 mean_score=[]
+ent_coef=0.001
 def update_policy():
- print(len(replay_buffer))
  # exit()
- losses=[]
- losses2=[]
+ losses_actor=[]
+ losses_critic=[]
+ entropy_losses_actor=[]
+
  with tf.GradientTape(persistent=True) as tape:
   for x in replay_buffer:
    for state,action,reward in x:
-     logits = model(state)
-     # if(action==0):
-     #   loss = compute_loss([[1,0]], logits)
-     # else:
-     #   loss = compute_loss([[0,1]], logits)
-     value=model2(state)
-     losses2.append(tf.keras.losses.MSE(reward,value))
-     reward=reward-value
-     losses.append(-tf.math.log(tf.gather(tf.squeeze(logits),tf.convert_to_tensor(action)))*reward)
+     logits = actor_model(state)
+     entropy_losses_actor.append(logits*tf.math.log(logits))
+     value=critic_model(state)
 
-  losses=tf.math.reduce_sum(losses)
-  losses2=tf.math.reduce_sum(losses2)
-  losses/=batch_size
-  losses2/=batch_size
-  # print(losses2)
-  # losses=tf.math.reduce_sum(losses,losses2)
- grads = tape.gradient(losses, model.trainable_variables)
- optimizer.apply_gradients(zip(grads, model.trainable_variables))
- grads2 = tape.gradient(losses2, model2.trainable_variables)
- optimizer.apply_gradients(zip(grads2, model2.trainable_variables))
- # print(grads)
- # exit()
+     losses_critic.append(tf.keras.losses.MSE(reward,value))
+     reward=reward-value
+     losses_actor.append(-tf.math.log(tf.gather(tf.squeeze(logits),tf.convert_to_tensor(action)))*reward)
+  
+
+  losses_actor=tf.math.reduce_sum(losses_actor)
+  losses_critic=tf.math.reduce_sum(losses_critic)
+  losses_actor/=batch_size
+  losses_critic/=batch_size
+  
+  entropy_losses_actor=tf.math.reduce_mean(entropy_losses_actor)
+  losses_actor=losses_actor-ent_coef*entropy_losses_actor
+
+
+ grads = tape.gradient(losses_actor, actor_model.trainable_variables)
+ # grads, _ = tf.clip_by_global_norm(grads, 0.5)
+ optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
+
+ grads2 = tape.gradient(losses_critic, critic_model.trainable_variables)
+ # grads2, _ = tf.clip_by_global_norm(grads2, 0.5)
+ optimizer.apply_gradients(zip(grads2, critic_model.trainable_variables))
+
 
 def discount_normalize_rewards(r, gamma = 0.99):
     discounted_r = np.zeros_like(r)
@@ -54,7 +60,6 @@ def discount_normalize_rewards(r, gamma = 0.99):
     for t in reversed(range(0, r.size)):
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
-        # print(discounted_r)
     discounted_r -= np.mean(discounted_r)
     discounted_r /= np.std(discounted_r)
     return discounted_r
@@ -74,27 +79,13 @@ for e in range(episodes):
   done = False 
   while not done:
     state = state.reshape([1,4])
-    logits = model(state)
-    # print(logits)
-    # print(state)
-    # state = state.reshape([1,1,4])
-    # print(state)
-    # state=[[[ 0.03073904,0.00145001,-0.03088818,-0.03131252]],[[ 0.03073904,0.00145001,-0.03088818,-0.03131252]]]
-    # print(np.array(state).shape)
-    # print(model.predict(np.array(state),2))
-    # exit()
+    logits = actor_model(state)
     a_dist = logits.numpy()
-    # Choose random action with p = action 
-    a = np.random.choice(a_dist[0],p=a_dist[0])
+    a = np.random.choice(a_dist[0],p=a_dist[0])  # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
-    a=a[0]
-    #need numpy int64
-    # if(a==0):
-    # 	loss = compute_loss([[1,0]], logits)
-    # else:
-    # 	loss = compute_loss([[0,1]], logits)
-    # make the choosen action 
-    next_state, reward, done, _ = env.step(a)
+    a=a[0] #need numpy int64
+
+    next_state, reward, done, _ = env.step(a) # make the choosen action 
     episode_score +=reward
     episode_memory.append([state,a,reward])
     state=next_state
@@ -117,6 +108,6 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='mean score',title=':(')
 ax.grid()
-fig.savefig("test2.png")
+fig.savefig("pg_w_baseline.png")
 plt.show()
   
