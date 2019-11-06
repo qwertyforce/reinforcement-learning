@@ -6,12 +6,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 tf.keras.backend.set_floatx('float64')
 model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
-  tf.keras.layers.Dense(2, activation='softmax')
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
+  tf.keras.layers.Dense(4, activation='softmax')
 ])
 
 model2 = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
@@ -58,7 +58,7 @@ def update_policy():
    losses2/=batch_size
 
    entropy_losses = tf.reduce_mean(entropy_losses)
-
+   # print(entropy_losses)
    losses=losses-ent_coef*entropy_losses
 
  grads = tape.gradient(losses, model.trainable_variables)
@@ -78,10 +78,10 @@ def discount_normalize_rewards(r, gamma = 0.99):
     discounted_r -= np.mean(discounted_r)
     discounted_r /= np.std(discounted_r)
     return discounted_r
-env = gym.make('CartPole-v0')
+env = gym.make('LunarLander-v2')
 env.seed(1)
 # env._max_episode_steps = 1000
-episodes = 1000
+episodes = 10000
 batch_size = 10
 score=0
 replay_buffer=[]
@@ -93,7 +93,7 @@ for e in range(episodes):
   episode_score = 0
   done = False 
   while not done:
-    state = state.reshape([1,4])
+    state = state.reshape([1,8])
     logits = model(state)
     a_dist = logits.numpy()
     
@@ -103,7 +103,7 @@ for e in range(episodes):
   
     next_state, reward, done, _ = env.step(a) # make the choosen action 
     episode_score +=reward
-    episode_memory.append([state.reshape(4,),a,reward])
+    episode_memory.append([state.reshape(8,),a,reward])
     state=next_state
   episode_memory=np.array(episode_memory)
   episode_memory[:,2] = discount_normalize_rewards(episode_memory[:,2])

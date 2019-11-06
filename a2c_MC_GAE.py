@@ -5,14 +5,15 @@ import tensorflow as tf
 import matplotlib
 import matplotlib.pyplot as plt
 from tensorboard.plugins.hparams import api as hp
+tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
-  tf.keras.layers.Dense(2, activation='softmax')
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
+  tf.keras.layers.Dense(4, activation='softmax')
 ])
-actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.0015))
+actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.001))
 
 critic_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
@@ -26,42 +27,52 @@ def discount_normalize_rewards(running_add,r, gamma = 0.99):
     discounted_r /= np.std(discounted_r)
     return discounted_r
 
-env = gym.make('CartPole-v0')
+env = gym.make('LunarLander-v2')
 env.seed(1)
-episodes = 500
+episodes = 10000
 score=0
 episode_n=[]
 mean_score=[]
 discount_factor=0.99
 max_score=200
 
+def train2(previous_states,advantages,real_previous_values,buff_size):
+    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=buff_size)
+    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=buff_size)
+    
 def train(buff):
     previous_states= []
     real_previous_values=[]
     advantages=[]
 
-    for previous_state, action, reward, current_state, done in buff:
+    last_gae = 0.0
+    GAMMA = 0.99
+    GAE_LAMBDA = 0.95
+    for previous_state, action, reward, current_state, done in reversed(buff):
         previous_states.append(previous_state)
-        previous_state_predicted_value=critic_model(previous_state)
-        if not done:
-            current_state_predicted_value=critic_model(current_state)
+        if done:
+           delta = reward - critic_model(previous_state)
+           last_gae = delta
         else:
-            current_state_predicted_value=0
-        real_previous_value = reward + discount_factor * current_state_predicted_value
-        real_previous_values.append(real_previous_value)
-        advantage=np.zeros((1,2))
-        advantage[0][action]=real_previous_value - previous_state_predicted_value
+          delta = reward + GAMMA * critic_model(current_state) - critic_model(previous_state)
+          last_gae = delta + GAMMA * GAE_LAMBDA * last_gae
+        advantage=np.zeros((1,4))
+        advantage[0][action]=last_gae
         advantages.append(advantage)
+        real_previous_values.append(last_gae + critic_model(previous_state))
+ 
+    previous_states=list(reversed(previous_states))
+    advantages=list(reversed(advantages))
+    real_previous_values=list(reversed(real_previous_values))
+    
+    previous_states=tf.convert_to_tensor(previous_states)
 
-    
-    previous_states=np.array(previous_states)
-    real_previous_values=np.array(real_previous_values)
-    advantages=np.array(advantages)
+    real_previous_values=tf.convert_to_tensor(real_previous_values)
+    advantages=tf.convert_to_tensor(advantages)
+    batch_size=tf.Variable(float(len(buff)))
 
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=len(buff))
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=len(buff))
-    
-    
+    train2(previous_states,advantages,real_previous_values,batch_size)
+
 	
 for e in range(episodes):
   state = env.reset()
@@ -71,7 +82,7 @@ for e in range(episodes):
   replay_buffer=[]
   running_add=0
   while not done:
-    state = state.reshape([1,4])
+    state = state.reshape([1,8])
     logits = actor_model(state)
     a_dist = logits.numpy()
     
@@ -79,7 +90,7 @@ for e in range(episodes):
     a, = np.where(a_dist[0] == a)
     a=a[0]
     next_state, reward, done, _ = env.step(a)
-    next_state = next_state.reshape([1,4])
+    next_state = next_state.reshape([1,8])
     episode_score +=reward
 
     # if done and not(episode_score==max_score):
@@ -88,7 +99,7 @@ for e in range(episodes):
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
   episode_memory=np.array(episode_memory)
-  episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
+  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
   train(episode_memory)
   score+=episode_score
 
@@ -104,5 +115,5 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
-fig.savefig("a2c_MC.png")
+fig.savefig("a2c_MC_gae.png")
 plt.show()

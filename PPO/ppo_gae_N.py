@@ -71,11 +71,10 @@ score=0
 episode_n=[]
 mean_score=[]
 discount_factor=0.99
-tau=0.95
 max_score=200
 Actor_update_steps = 10
 Critic_update_steps = 10
-
+batch_size=512
 
 def train(buff):
     upd_old_policy()
@@ -123,11 +122,10 @@ def train(buff):
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     
-	
+episode_memory=[]
 for e in range(episodes):
   state = env.reset()
   episode_score = 0
-  episode_memory=[]
   done = False
   running_add=0
   while not done:
@@ -143,10 +141,12 @@ for e in range(episodes):
     episode_score +=reward
 
     episode_memory.append([state, a, reward, next_state, done])
+    if (len(episode_memory)==batch_size):
+      episode_memory=np.array(episode_memory)
+      train(episode_memory)
+      print("Policy update")
+      episode_memory=[]
     state=next_state
-  episode_memory=np.array(episode_memory)
-  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
-  train(episode_memory)
   score+=episode_score
 
   print("Episode  {}  Score  {}".format(e+1, episode_score))
@@ -161,5 +161,5 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
-fig.savefig("ppo_gae.png")
+fig.savefig("ppo_gae_N.png")
 plt.show()

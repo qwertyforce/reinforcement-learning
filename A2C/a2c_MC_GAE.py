@@ -5,11 +5,12 @@ import tensorflow as tf
 import matplotlib
 import matplotlib.pyplot as plt
 from tensorboard.plugins.hparams import api as hp
+tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
   tf.keras.layers.Dense(2, activation='softmax')
 ])
-actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.0015))
+actor_model.compile(loss='categorical_crossentropy',optimizer=tf.keras.optimizers.Adam(learning_rate = 0.001))
 
 critic_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
@@ -28,13 +29,17 @@ def discount_normalize_rewards(running_add,r, gamma = 0.99):
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-episodes = 500
+episodes = 1000
 score=0
 episode_n=[]
 mean_score=[]
 discount_factor=0.99
 max_score=200
 
+def train2(previous_states,advantages,real_previous_values,buff_size):
+    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=buff_size)
+    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=buff_size)
+    
 def train(buff):
     previous_states= []
     real_previous_values=[]
@@ -60,14 +65,14 @@ def train(buff):
     advantages=list(reversed(advantages))
     real_previous_values=list(reversed(real_previous_values))
     
-    previous_states=np.array(previous_states)
-    real_previous_values=np.array(real_previous_values)
-    advantages=np.array(advantages)
+    previous_states=tf.convert_to_tensor(previous_states)
 
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=len(buff))
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=len(buff))
-    
-    
+    real_previous_values=tf.convert_to_tensor(real_previous_values)
+    advantages=tf.convert_to_tensor(advantages)
+    batch_size=tf.Variable(float(len(buff)))
+
+    train2(previous_states,advantages,real_previous_values,batch_size)
+
 	
 for e in range(episodes):
   state = env.reset()

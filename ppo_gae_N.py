@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from tensorboard.plugins.hparams import api as hp
 tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
-  tf.keras.layers.Dense(2, activation='softmax')
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
+  tf.keras.layers.Dense(4, activation='softmax')
 ])
 e_clip=0.2
 ent_coef=0.001
@@ -37,8 +37,8 @@ def losss(states,actions,advantages):
 
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
 old_actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu', trainable=False),
-  tf.keras.layers.Dense(2, activation='softmax', trainable=False)
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
+  tf.keras.layers.Dense(4, activation='softmax', trainable=False)
 ])
 
 
@@ -48,34 +48,23 @@ def upd_old_policy():
 
 
 critic_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(running_add,r, gamma = 0.99):
-    discounted_r = np.zeros_like(r)
-    running_add = 0
-    for t in reversed(range(0, r.size)):
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)
-    return discounted_r
 
-env = gym.make('CartPole-v0')
+env = gym.make('LunarLander-v2')
 env.seed(1)
 # env._max_episode_steps = 1000
-episodes = 500
+episodes = 5000
 score=0
 episode_n=[]
 mean_score=[]
-discount_factor=0.99
-tau=0.95
-max_score=200
+
 Actor_update_steps = 10
 Critic_update_steps = 10
-
+batch_size=512
 
 def train(buff):
     upd_old_policy()
@@ -123,15 +112,13 @@ def train(buff):
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     
-	
+episode_memory=[]
 for e in range(episodes):
   state = env.reset()
   episode_score = 0
-  episode_memory=[]
   done = False
-  running_add=0
   while not done:
-    state = state.reshape([1,4])
+    state = state.reshape([1,8])
     logits = actor_model(state)
     a_dist = logits.numpy()
     
@@ -139,14 +126,16 @@ for e in range(episodes):
     a, = np.where(a_dist[0] == a)
     a=a[0]
     next_state, reward, done, _ = env.step(a)
-    next_state = next_state.reshape([1,4])
+    next_state = next_state.reshape([1,8])
     episode_score +=reward
 
     episode_memory.append([state, a, reward, next_state, done])
+    if (len(episode_memory)==batch_size):
+      episode_memory=np.array(episode_memory)
+      train(episode_memory)
+      print("Policy update")
+      episode_memory=[]
     state=next_state
-  episode_memory=np.array(episode_memory)
-  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
-  train(episode_memory)
   score+=episode_score
 
   print("Episode  {}  Score  {}".format(e+1, episode_score))
@@ -161,5 +150,5 @@ fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
-fig.savefig("ppo_gae.png")
+fig.savefig("ppo_gae_N.png")
 plt.show()
