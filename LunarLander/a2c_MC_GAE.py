@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf 
 import matplotlib
 import matplotlib.pyplot as plt
-from tensorboard.plugins.hparams import api as hp
+
 tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
@@ -18,22 +18,17 @@ critic_model = tf.keras.models.Sequential([
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(running_add,r, gamma = 0.99):
-    discounted_r = np.zeros_like(r)
-    for t in reversed(range(0, r.size)):
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)
-    return discounted_r
+
+actor_model.load_weights('./weights/actor_model5000')
+critic_model.load_weights('./weights/critic_model5000')
+ 
 
 env = gym.make('LunarLander-v2')
 env.seed(1)
-episodes = 10000
+episodes = 500
 score=0
 episode_n=[]
 mean_score=[]
-discount_factor=0.99
 max_score=200
 
 def train2(previous_states,advantages,real_previous_values,buff_size):
@@ -85,7 +80,7 @@ for e in range(episodes):
     state = state.reshape([1,8])
     logits = actor_model(state)
     a_dist = logits.numpy()
-    
+    # env.render()
     a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
     a=a[0]
@@ -99,7 +94,6 @@ for e in range(episodes):
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
   episode_memory=np.array(episode_memory)
-  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
   train(episode_memory)
   score+=episode_score
 
@@ -109,6 +103,10 @@ for e in range(episodes):
     mean_score.append(score/10)
     print("Episode  mean  score  {}".format(score/10))
     score=0
+
+  if(e+1) % 500 == 0:
+    actor_model.save_weights('./weights/actor_model'+str(e+1))
+    critic_model.save_weights('./weights/critic_model'+str(e+1))
     
 
 fig, ax = plt.subplots()

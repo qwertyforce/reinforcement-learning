@@ -81,7 +81,7 @@ def discount_normalize_rewards(r, gamma = 0.99):
 env = gym.make('CartPole-v0')
 env.seed(1)
 # env._max_episode_steps = 1000
-episodes = 1000
+episodes = 500
 batch_size = 10
 score=0
 replay_buffer=[]
@@ -112,13 +112,16 @@ for e in range(episodes):
 
   print("Episode  {}  Score  {}".format(e+1, episode_score))
   if (e+1) % batch_size == 0:
-    episode_n.append(e+1)
-    mean_score.append(score/batch_size)
-    print("Episode  mean  score  {}".format(score/batch_size))
     update_policy()
     replay_buffer=[]
-    score=0
     print("==Policy Updated==")
+  if (e+1) % 10 == 0:
+    episode_n.append(e+1)
+    mean_score.append(score/10)
+    print("Episode  mean  score  {}".format(score/10))
+    replay_buffer=[]
+    score=0
+
 
 fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)

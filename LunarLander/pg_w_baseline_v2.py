@@ -14,6 +14,9 @@ model2 = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
+ # model.load_weights('./weights_pg/model')
+ # model2.load_weights('./weights_pg/model2')
+
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
 optimizer2 = tf.keras.optimizers.Adam(learning_rate = 0.01)
 model.summary()
@@ -119,6 +122,11 @@ for e in range(episodes):
     replay_buffer=[]
     score=0
     print("==Policy Updated==")
+
+    if(e+1) % 500 == 0:
+      model.save_weights('./weights_pg/model'+str(e+1))
+      model2.save_weights('./weights_pg/model2'+str(e+1))
+    
 
 fig, ax = plt.subplots()
 ax.plot(episode_n, mean_score)
