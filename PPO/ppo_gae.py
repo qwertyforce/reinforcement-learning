@@ -53,16 +53,6 @@ critic_model = tf.keras.models.Sequential([
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(running_add,r, gamma = 0.99):
-    discounted_r = np.zeros_like(r)
-    running_add = 0
-    for t in reversed(range(0, r.size)):
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)
-    return discounted_r
-
 env = gym.make('CartPole-v0')
 env.seed(1)
 # env._max_episode_steps = 1000
@@ -119,7 +109,7 @@ def train(buff):
         losses=losss(previous_states,actions,advantages)
 
       grads = tape.gradient(losses, actor_model.trainable_variables)
-      grads, _ = tf.clip_by_global_norm(grads, 0.5)
+      # grads, _ = tf.clip_by_global_norm(grads, 0.5)
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     
@@ -145,7 +135,6 @@ for e in range(episodes):
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
   episode_memory=np.array(episode_memory)
-  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
   train(episode_memory)
   score+=episode_score
 

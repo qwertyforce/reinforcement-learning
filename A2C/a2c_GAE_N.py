@@ -19,32 +19,20 @@ critic_model = tf.keras.models.Sequential([
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(dones,r, gamma = 0.99):
-    discounted_r = np.zeros_like(r)
-    running_add = 0
-    for t in reversed(range(0, r.size)):
-        if(dones[t]==1):
-          running_add=0
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-        # print(discounted_r)
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)+1e-8
-    return discounted_r
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-episodes = 1000
+episodes = 500
 score=0
 episode_n=[]
 mean_score=[]
 discount_factor=0.99
 max_score=200
-batch_size=128
+batch_size=64
 
 def train2(previous_states,advantages,real_previous_values,buff_size):
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=32)
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=32)
+    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=buff_size)
+    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=buff_size)
     
 def train(buff):
     previous_states= []
@@ -110,7 +98,6 @@ for e in range(episodes):
     
     if (len(episode_memory)==batch_size):
       episode_memory=np.array(episode_memory)
-      # episode_memory[:,2] = discount_normalize_rewards(dones,episode_memory[:,2])
       train(episode_memory)
       print("Policy update")
       episode_memory=[]

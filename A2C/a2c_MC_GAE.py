@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf 
 import matplotlib
 import matplotlib.pyplot as plt
-from tensorboard.plugins.hparams import api as hp
+
 tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,4),activation='relu'),
@@ -18,22 +18,14 @@ critic_model = tf.keras.models.Sequential([
 ])
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-def discount_normalize_rewards(running_add,r, gamma = 0.99):
-    discounted_r = np.zeros_like(r)
-    for t in reversed(range(0, r.size)):
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)
-    return discounted_r
+
 
 env = gym.make('CartPole-v0')
 env.seed(1)
-episodes = 1000
+episodes = 500
 score=0
 episode_n=[]
 mean_score=[]
-discount_factor=0.99
 max_score=200
 
 def train2(previous_states,advantages,real_previous_values,buff_size):
@@ -99,7 +91,6 @@ for e in range(episodes):
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
   episode_memory=np.array(episode_memory)
-  # episode_memory[:,2] = discount_normalize_rewards(running_add,episode_memory[:,2])
   train(episode_memory)
   score+=episode_score
 
