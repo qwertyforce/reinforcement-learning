@@ -12,7 +12,7 @@ actor_model = tf.keras.models.Sequential([
 ])
 e_clip=0.2
 ent_coef=0.001
-@tf.function
+# @tf.function
 def losss(states,actions,advantages):
    indices=[]
    
@@ -64,7 +64,7 @@ mean_score=[]
 
 Actor_update_steps = 10
 Critic_update_steps = 10
-batch_size=512
+batch_size=128
 
 def train(buff):
     upd_old_policy()
@@ -96,7 +96,8 @@ def train(buff):
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
 
-    critic_model.fit(previous_states, real_previous_values, epochs=Critic_update_steps,verbose=0,batch_size=len(buff))
+    for _ in range(Critic_update_steps):
+      critic_model.train_on_batch(previous_states, real_previous_values)    
     advantages=np.vstack(advantages)
     
     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -108,7 +109,7 @@ def train(buff):
         losses=losss(previous_states,actions,advantages)
 
       grads = tape.gradient(losses, actor_model.trainable_variables)
-      grads, _ = tf.clip_by_global_norm(grads, 0.5)
+      # grads, _ = tf.clip_by_global_norm(grads, 0.5)
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     

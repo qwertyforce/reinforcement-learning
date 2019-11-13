@@ -4,7 +4,6 @@ import sys
 import tensorflow as tf 
 import matplotlib
 import matplotlib.pyplot as plt
-from tensorboard.plugins.hparams import api as hp
 tf.keras.backend.set_floatx('float64')
 actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
@@ -12,7 +11,7 @@ actor_model = tf.keras.models.Sequential([
 ])
 e_clip=0.2
 ent_coef=0.001
-@tf.function
+# @tf.function
 def losss(states,actions,advantages):
    indices=[]
 
@@ -38,7 +37,7 @@ def losss(states,actions,advantages):
    return loss
 
 
-optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
+optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
 old_actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
   tf.keras.layers.Dense(4, activation='softmax', trainable=False)
@@ -54,11 +53,11 @@ critic_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
-critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.01))
+critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
 
-actor_model.load_weights('./weights_ppo/actor_model3000')
-critic_model.load_weights('./weights_ppo/critic_model3000')
-old_actor_model.load_weights('./weights_ppo/old_actor_model3000')
+# actor_model.load_weights('./weights_ppo/actor_model1500')
+# critic_model.load_weights('./weights_ppo/critic_model1500')
+# old_actor_model.load_weights('./weights_ppo/old_actor_model1500')
 
 env = gym.make('LunarLander-v2')
 env.seed(1)
@@ -101,10 +100,11 @@ def train(buff):
 
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
-
-    critic_model.fit(previous_states, real_previous_values, epochs=Critic_update_steps,verbose=0,batch_size=len(buff))
-    advantages=np.vstack(advantages)
     
+    for _ in range(Critic_update_steps):
+      critic_model.train_on_batch(previous_states, real_previous_values)    
+
+    advantages=np.vstack(advantages)
     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
     advantages=tf.squeeze(advantages)
     previous_states=np.vstack(previous_states)
@@ -129,7 +129,6 @@ for e in range(episodes):
     state = state.reshape([1,8])
     logits = actor_model(state)
     a_dist = logits.numpy()
-    # env.render()
     a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
     a=a[0]

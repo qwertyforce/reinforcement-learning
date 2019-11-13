@@ -4,7 +4,8 @@ import sys
 import tensorflow as tf 
 import matplotlib
 import matplotlib.pyplot as plt
-from tensorboard.plugins.hparams import api as hp
+
+
 tf.keras.backend.set_floatx('float64')
 
 actor_model = tf.keras.models.Sequential([
@@ -28,11 +29,11 @@ episode_n=[]
 mean_score=[]
 discount_factor=0.99
 max_score=200
-batch_size=64
+batch_size=32
 
-def train2(previous_states,advantages,real_previous_values,buff_size):
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=buff_size)
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=buff_size)
+def train2(previous_states,advantages,real_previous_values):
+    actor_model.train_on_batch(previous_states, advantages)
+    critic_model.train_on_batch(previous_states, real_previous_values)
     
 def train(buff):
     previous_states= []
@@ -62,10 +63,11 @@ def train(buff):
     previous_states=tf.convert_to_tensor(previous_states)
 
     real_previous_values=tf.convert_to_tensor(real_previous_values)
-    advantages=tf.convert_to_tensor(advantages)
-    batch_size=tf.Variable(float(len(buff)))
 
-    train2(previous_states,advantages,real_previous_values,batch_size)
+    advantages=tf.convert_to_tensor(advantages)
+
+    train2(previous_states,advantages,real_previous_values)
+
 
 
     

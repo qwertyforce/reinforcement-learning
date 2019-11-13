@@ -28,9 +28,9 @@ episode_n=[]
 mean_score=[]
 max_score=200
 
-def train2(previous_states,advantages,real_previous_values,buff_size):
-    actor_model.fit(previous_states, advantages, epochs=1, verbose=0,batch_size=buff_size)
-    critic_model.fit(previous_states, real_previous_values, epochs=1,verbose=0,batch_size=buff_size)
+def train2(previous_states,advantages,real_previous_values):
+    actor_model.train_on_batch(previous_states, advantages)
+    critic_model.train_on_batch(previous_states, real_previous_values)
     
 def train(buff):
     previous_states= []
@@ -61,9 +61,8 @@ def train(buff):
 
     real_previous_values=tf.convert_to_tensor(real_previous_values)
     advantages=tf.convert_to_tensor(advantages)
-    batch_size=tf.Variable(float(len(buff)))
 
-    train2(previous_states,advantages,real_previous_values,batch_size)
+    train2(previous_states,advantages,real_previous_values)
 
 	
 for e in range(episodes):

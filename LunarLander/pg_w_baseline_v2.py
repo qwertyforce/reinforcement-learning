@@ -14,8 +14,8 @@ model2 = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
- # model.load_weights('./weights_pg/model')
- # model2.load_weights('./weights_pg/model2')
+# model.load_weights('./weights_pg/model4000')
+# model2.load_weights('./weights_pg/model24000')
 
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
 optimizer2 = tf.keras.optimizers.Adam(learning_rate = 0.01)
@@ -99,7 +99,7 @@ for e in range(episodes):
     state = state.reshape([1,8])
     logits = model(state)
     a_dist = logits.numpy()
-    
+
     a = np.random.choice(a_dist[0],p=a_dist[0])  # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
     a=a[0]  #need numpy int64
@@ -115,17 +115,19 @@ for e in range(episodes):
 
   print("Episode  {}  Score  {}".format(e+1, episode_score))
   if (e+1) % batch_size == 0:
-    episode_n.append(e+1)
-    mean_score.append(score/batch_size)
-    print("Episode  mean  score  {}".format(score/batch_size))
     update_policy()
     replay_buffer=[]
-    score=0
     print("==Policy Updated==")
+  if (e+1) % 10 == 0:
+    episode_n.append(e+1)
+    mean_score.append(score/10)
+    print("Episode  mean  score  {}".format(score/10))
+    replay_buffer=[]
+    score=0
 
-    if(e+1) % 500 == 0:
-      model.save_weights('./weights_pg/model'+str(e+1))
-      model2.save_weights('./weights_pg/model2'+str(e+1))
+  if(e+1) % 500 == 0:
+    model.save_weights('./weights_pg/model'+str(e+1))
+    model2.save_weights('./weights_pg/model2'+str(e+1))
     
 
 fig, ax = plt.subplots()
