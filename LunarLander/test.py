@@ -12,7 +12,7 @@ actor_model = tf.keras.models.Sequential([
 ])
 
 
-actor_model.load_weights('./weights_a2c/actor_model10000')
+actor_model.load_weights('./weights_ppo_N/actor_model10000')
 
  
 

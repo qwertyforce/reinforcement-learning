@@ -61,11 +61,15 @@ critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Ad
 
 env = gym.make('LunarLander-v2')
 env.seed(1)
+env2 = gym.make('LunarLander-v2')
+env2.seed(2)
 # env._max_episode_steps = 1000
-episodes = 5000
+episodes =10000
 score=0
 episode_n=[]
-mean_score=[]
+episode_n_test=[]
+score_train=[]
+score_test=[]
 
 Actor_update_steps = 10
 Critic_update_steps = 10
@@ -118,7 +122,25 @@ def train(buff):
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     
-	
+def test():
+  score=0
+  for e in range(10):
+    state = env2.reset()
+    episode_score = 0
+    done = False
+    while not done:
+       state = state.reshape([1,8])
+       logits = actor_model(state)
+       a_dist = logits.numpy()
+       a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
+       a, = np.where(a_dist[0] == a)
+       a=a[0]
+       next_state, reward, done, _ = env2.step(a)
+       episode_score +=reward
+       state=next_state
+    score+=episode_score
+  return (score/10)
+
 for e in range(episodes):
   state = env.reset()
   episode_score = 0
@@ -138,25 +160,32 @@ for e in range(episodes):
 
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
+
   episode_memory=np.array(episode_memory)
   train(episode_memory)
   score+=episode_score
-
+  episode_n.append(e+1)
   print("Episode  {}  Score  {}".format(e+1, episode_score))
-  if (e+1) % 10 == 0:
-    episode_n.append(e+1)
-    mean_score.append(score/10)
-    print("Episode  mean  score  {}".format(score/10))
+  score_train.append(episode_score)
+
+  if (e+1) %  10 == 0:
+    print("10 Episodes  mean train score {}".format(score/10))
     score=0
   if(e+1) % 500 == 0:
+    test_score=test()
+    episode_n_test.append(e+1)
+    score_test.append(test_score)
+
     actor_model.save_weights('./weights_ppo/actor_model'+str(e+1))
     critic_model.save_weights('./weights_ppo/critic_model'+str(e+1)) 
     old_actor_model.save_weights('./weights_ppo/old_actor_model'+str(e+1))
     
 
 fig, ax = plt.subplots()
-ax.plot(episode_n, mean_score)
+ax.plot(episode_n, score_train)
+ax.plot(episode_n_test, score_test)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
+fig.legend(['Train score', 'Test score'], loc='upper left')
 fig.savefig("ppo_gae.png")
 plt.show()
