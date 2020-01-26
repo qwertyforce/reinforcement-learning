@@ -5,12 +5,46 @@ import tensorflow as tf
 import matplotlib
 import matplotlib.pyplot as plt
 tf.keras.backend.set_floatx('float64')
+
+optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
 actor_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(4, activation='softmax')
 ])
+
+old_actor_model = tf.keras.models.Sequential([
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
+  tf.keras.layers.Dense(4, activation='softmax', trainable=False)
+])
+
+critic_model = tf.keras.models.Sequential([
+  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
+  tf.keras.layers.Dense(1)
+])
+critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
+
+# actor_model.load_weights('./weights_ppo/actor_model1500')
+# critic_model.load_weights('./weights_ppo/critic_model1500')
+# old_actor_model.load_weights('./weights_ppo/old_actor_model1500')
+
+env = gym.make('LunarLander-v2')
+env.seed(1)
+env2 = gym.make('LunarLander-v2')
+env2.seed(2)
+# env._max_episode_steps = 1000
+episodes =10000
+score=0
+episode_n=[]
+episode_n_test=[]
+score_train=[]
+score_test=[]
+
+Actor_update_steps = 10
+Critic_update_steps = 10
 e_clip=0.2
 ent_coef=0.001
+
+
 # @tf.function
 def losss(states,actions,advantages):
    indices=[]
@@ -37,42 +71,11 @@ def losss(states,actions,advantages):
    return loss
 
 
-optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
-old_actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
-  tf.keras.layers.Dense(4, activation='softmax', trainable=False)
-])
 
 
 def upd_old_policy():
   weights_actor_model = actor_model.get_weights()
   old_actor_model.set_weights(weights_actor_model)
-
-
-critic_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
-  tf.keras.layers.Dense(1)
-])
-critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
-
-# actor_model.load_weights('./weights_ppo/actor_model1500')
-# critic_model.load_weights('./weights_ppo/critic_model1500')
-# old_actor_model.load_weights('./weights_ppo/old_actor_model1500')
-
-env = gym.make('LunarLander-v2')
-env.seed(1)
-env2 = gym.make('LunarLander-v2')
-env2.seed(2)
-# env._max_episode_steps = 1000
-episodes =10000
-score=0
-episode_n=[]
-episode_n_test=[]
-score_train=[]
-score_test=[]
-
-Actor_update_steps = 10
-Critic_update_steps = 10
 
 
 def train(buff):
