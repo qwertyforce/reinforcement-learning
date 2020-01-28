@@ -21,6 +21,23 @@ optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
 optimizer2 = tf.keras.optimizers.Adam(learning_rate = 0.01)
 
 
+
+env = gym.make('LunarLander-v2')
+env.seed(1)
+env2 = gym.make('LunarLander-v2')
+env2.seed(2)
+# env._max_episode_steps = 1000
+episodes = 10000
+batch_size = 10
+score=0
+episode_n=[]
+episode_n_test=[]
+score_train=[]
+score_test=[]
+
+ent_coef=0.001
+replay_buffer=[]
+
 def update_policy():
  losses=[]
  losses2=[]
@@ -80,21 +97,6 @@ def discount_normalize_rewards(r, gamma = 0.99):
     discounted_r /= np.std(discounted_r)
     return discounted_r
 
-env = gym.make('LunarLander-v2')
-env.seed(1)
-env2 = gym.make('LunarLander-v2')
-env2.seed(2)
-# env._max_episode_steps = 1000
-episodes = 10000
-batch_size = 10
-score=0
-episode_n=[]
-episode_n_test=[]
-score_train=[]
-score_test=[]
-
-ent_coef=0.001
-replay_buffer=[]
 
 def test():
   score=0
