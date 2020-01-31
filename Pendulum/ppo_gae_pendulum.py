@@ -2,34 +2,54 @@ import numpy as np
 import gym
 import sys
 import tensorflow as tf 
+from tensorflow import keras
+from tensorflow.keras import layers
+import tensorflow_probability as tfp
 import matplotlib
 import matplotlib.pyplot as plt
 tf.keras.backend.set_floatx('float64')
-
+# actor_model = tf.keras.models.Sequential([
+#   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
+#   tf.keras.layers.Dense(4, activation='softmax')
+# ])
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
-actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
-  tf.keras.layers.Dense(4, activation='softmax')
-])
+inputs = keras.Input(shape=(1,3),)
+x = layers.Dense(256, activation='relu')(inputs)
+mu = 2*layers.Dense(1, activation='tanh')(x)
+sigma = layers.Dense(1, activation='softplus')(x)+ 0.001
+actor_model = keras.Model(inputs=inputs, outputs=[mu,sigma], name='actor_model')
+actor_model.summary()
 
-old_actor_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
-  tf.keras.layers.Dense(4, activation='softmax', trainable=False)
-])
+e_clip=0.2
+ent_coef=0.005
 
-critic_model = tf.keras.models.Sequential([
-  tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
-  tf.keras.layers.Dense(1)
-])
+inputs = keras.Input(shape=(1,3),)
+x = layers.Dense(256, activation='relu', trainable=False)(inputs)
+mu = 2*layers.Dense(1, activation='tanh', trainable=False)(x)
+sigma = layers.Dense(1, activation='softplus', trainable=False)(x)+ 0.001
+old_actor_model = keras.Model(inputs=inputs, outputs=[mu,sigma], name='old_actor_model')
+old_actor_model.summary()
+
+# old_actor_model = tf.keras.models.Sequential([
+#   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu', trainable=False),
+#   tf.keras.layers.Dense(4, activation='softmax', trainable=False)
+# ])
+
+inputs = keras.Input(shape=(1,3),)
+x = layers.Dense(256, activation='relu')(inputs)
+value = layers.Dense(1, activation=None)(x)
+critic_model = keras.Model(inputs=inputs, outputs=value, name='critic_model')
+
 critic_model.compile(loss='mean_squared_error', optimizer=tf.keras.optimizers.Adam(learning_rate = 0.005))
+critic_model.summary()
 
 # actor_model.load_weights('./weights_ppo/actor_model1500')
 # critic_model.load_weights('./weights_ppo/critic_model1500')
 # old_actor_model.load_weights('./weights_ppo/old_actor_model1500')
 
-env = gym.make('LunarLander-v2')
+env = gym.make('Pendulum-v0')
 env.seed(1)
-env2 = gym.make('LunarLander-v2')
+env2 = gym.make('Pendulum-v0')
 env2.seed(2)
 # env._max_episode_steps = 1000
 episodes =10000
@@ -41,25 +61,29 @@ score_test=[]
 
 Actor_update_steps = 10
 Critic_update_steps = 10
-e_clip=0.2
-ent_coef=0.001
 
 
 # @tf.function
 def losss(states,actions,advantages):
-   indices=[]
-   for x in range(len(states)):
-     indices.append([x,0,actions[x]])
+   # print(states)
+   # exit()
+   mu, sigma = actor_model(states)
+   mu=tf.squeeze(mu)
+   sigma=tf.squeeze(sigma)
+   normal_dist = tfp.distributions.Normal(mu, sigma)
 
-   logits=actor_model(states) 
 
-   entropy_losses = -tf.reduce_sum(logits *tf.math.log(logits), axis=1)
+   entropy_losses = normal_dist.entropy()
    entropy_losses = tf.reduce_mean(entropy_losses, axis=0)
 
-   probs=tf.math.log(tf.gather_nd(logits,tf.convert_to_tensor(indices)))
+   probs=normal_dist.log_prob(actions)
    
-   logits2=old_actor_model(states)
-   old_probs=tf.math.log(tf.gather_nd(logits2,tf.convert_to_tensor(indices)))
+   old_mu, old_sigma = old_actor_model(states)
+   old_mu=tf.squeeze(old_mu)
+   old_sigma=tf.squeeze(old_sigma)
+   old_normal_dist = tfp.distributions.Normal(old_mu, old_sigma)
+
+   old_probs= old_normal_dist.log_prob(actions)
    ratios = tf.exp(probs-old_probs)
    clip_probs = tf.clip_by_value(ratios, 1.-e_clip, 1.+e_clip)
 
@@ -69,13 +93,9 @@ def losss(states,actions,advantages):
    loss=loss-ent_coef*entropy_losses
    return loss
 
-
-
-
 def upd_old_policy():
   weights_actor_model = actor_model.get_weights()
   old_actor_model.set_weights(weights_actor_model)
-
 
 def train(buff):
     upd_old_policy()
@@ -125,24 +145,27 @@ def train(buff):
       optimizer.apply_gradients(zip(grads, actor_model.trainable_variables))
     
     
+
 def test():
   score=0
-  for e in range(10):
+  for e in range(20):
     state = env2.reset()
     episode_score = 0
     done = False
     while not done:
-       state = state.reshape([1,1,8])
-       logits = actor_model(state)
-       a_dist = logits.numpy()[0]
-       a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
-       a, = np.where(a_dist[0] == a)
-       a=a[0]
-       next_state, reward, done, _ = env2.step(a)
+       state = state.reshape([1,1,3])
+       mu, sigma = actor_model(state)
+       normal_dist = tfp.distributions.Normal(mu, sigma)
+       action = normal_dist.sample([1,1])
+       action=action[0][0][0][0][0]
+       action = np.clip(action, -2, 2)
+
+       next_state, reward, done, _ = env2.step([action])
        episode_score +=reward
        state=next_state
     score+=episode_score
-  return (score/10)
+  return (score/20)
+
 
 for e in range(episodes):
   state = env.reset()
@@ -151,17 +174,18 @@ for e in range(episodes):
   done = False
   running_add=0
   while not done:
-    state = state.reshape([1,1,8])
-    logits = actor_model(state)
-    a_dist = logits.numpy()[0]
-    a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
-    a, = np.where(a_dist[0] == a)
-    a=a[0]
-    next_state, reward, done, _ = env.step(a)
-    next_state = next_state.reshape([1,1,8])
+    state = state.reshape([1,1,3])
+    mu, sigma = actor_model(state)
+    normal_dist = tfp.distributions.Normal(mu, sigma)
+    action = normal_dist.sample([1,1])
+    action=action[0][0][0][0][0]
+    action = np.clip(action, -2, 2)
+
+    next_state, reward, done, _ = env.step([action])
+    next_state = next_state.reshape([1,1,3])
     episode_score +=reward
 
-    episode_memory.append([state, a, reward, next_state, done])
+    episode_memory.append([state, action, (reward+8.1)/8.1, next_state, done])
     state=next_state
 
   episode_memory=np.array(episode_memory)
@@ -179,9 +203,9 @@ for e in range(episodes):
     episode_n_test.append(e+1)
     score_test.append(test_score)
 
-    actor_model.save_weights('./weights_ppo/actor_model'+str(e+1))
-    critic_model.save_weights('./weights_ppo/critic_model'+str(e+1)) 
-    old_actor_model.save_weights('./weights_ppo/old_actor_model'+str(e+1))
+    # actor_model.save_weights('./weights_ppo/actor_model'+str(e+1))
+    # critic_model.save_weights('./weights_ppo/critic_model'+str(e+1)) 
+    # old_actor_model.save_weights('./weights_ppo/old_actor_model'+str(e+1))
     
 
 fig, ax = plt.subplots()
@@ -190,5 +214,5 @@ ax.plot(episode_n_test, score_test)
 ax.set(xlabel='episode n', ylabel='score',title=':(')
 ax.grid()
 fig.legend(['Train score', 'Test score'], loc='upper left')
-fig.savefig("ppo_gae.png")
+fig.savefig("ppo_gae_pendulum.png")
 plt.show()

@@ -14,8 +14,8 @@ critic_model = tf.keras.models.Sequential([
   tf.keras.layers.Dense(128,input_shape=(1,8),activation='relu'),
   tf.keras.layers.Dense(1)
 ])
-actor_model.load_weights('./weights_pg/actor_model10000')
-critic_model.load_weights('./weights_pg/critic_model10000')
+# actor_model.load_weights('./weights_pg/actor_model10000')
+# critic_model.load_weights('./weights_pg/critic_model10000')
 
 optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
 optimizer2 = tf.keras.optimizers.Adam(learning_rate = 0.01)
@@ -48,23 +48,27 @@ def update_policy():
     
     actions=x[:,1]
     rewards=x[:,2]
-
     logits = actor_model(states)
+
     for v in logits:
       entropy_losses.append(-tf.reduce_sum(v *tf.math.log(v),axis=0))
 
     values=critic_model(states)
-   
+    values=tf.squeeze(values,axis=[1])
+
     rewards=np.vstack(rewards)
     rewards=tf.convert_to_tensor(rewards, dtype=tf.float64)
 
     losses2.extend(tf.keras.losses.MSE(rewards,values))
-    
-    rewards=rewards-values
-    indices=[]
-    for x in range(len(states)):
-      indices.append([x,actions[x]])
 
+    rewards=rewards-values
+
+
+    indices=[]
+
+    for x in range(len(states)):
+      indices.append([x,0,actions[x]])
+    
     rewards=tf.squeeze(rewards)
 
     neg_log_prob=-tf.math.log(tf.gather_nd(logits,tf.convert_to_tensor(indices)))
@@ -105,9 +109,9 @@ def test():
     episode_score = 0
     done = False
     while not done:
-       state = state.reshape([1,8])
+       state = state.reshape([1,1,8])
        logits = actor_model(state)
-       a_dist = logits.numpy()
+       a_dist = logits.numpy()[0]
        a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
        a, = np.where(a_dist[0] == a)
        a=a[0]
@@ -126,9 +130,9 @@ for e in range(episodes):
   episode_score = 0
   done = False 
   while not done:
-    state = state.reshape([1,8])
+    state = state.reshape([1,1,8])
     logits = actor_model(state)
-    a_dist = logits.numpy()
+    a_dist = logits.numpy()[0]
 
     a = np.random.choice(a_dist[0],p=a_dist[0])  # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
@@ -136,7 +140,7 @@ for e in range(episodes):
   
     next_state, reward, done, _ = env.step(a) # make the choosen action 
     episode_score +=reward
-    episode_memory.append([state.reshape(8,),a,reward])
+    episode_memory.append([state,a,reward])
     state=next_state
   episode_memory=np.array(episode_memory)
   episode_memory[:,2] = discount_normalize_rewards(episode_memory[:,2])

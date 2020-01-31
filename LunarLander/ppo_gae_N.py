@@ -52,7 +52,7 @@ def losss(states,actions,advantages):
    indices=[]
    
    for x in range(len(states)):
-     indices.append([x,actions[x]])
+     indices.append([x,0,actions[x]])
 
    logits=actor_model(states)
    entropy_loss = -tf.reduce_sum(logits *tf.math.log(logits), axis=1)
@@ -93,9 +93,9 @@ def test():
     episode_score = 0
     done = False
     while not done:
-       state = state.reshape([1,8])
+       state = state.reshape([1,1,8])
        logits = actor_model(state)
-       a_dist = logits.numpy()
+       a_dist = logits.numpy()[0]
        a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
        a, = np.where(a_dist[0] == a)
        a=a[0]
@@ -123,6 +123,7 @@ def train(buff):
         else:
           delta = reward + GAMMA * critic_model(current_state) - critic_model(previous_state)
           last_gae = delta + GAMMA * GAE_LAMBDA * last_gae
+        last_gae=tf.squeeze(last_gae,axis=[1])
         advantages.append(last_gae)
         real_previous_values.append(last_gae + critic_model(previous_state))
  
@@ -130,7 +131,7 @@ def train(buff):
     previous_states=list(reversed(previous_states))
     advantages=list(reversed(advantages))
     real_previous_values=list(reversed(real_previous_values))
-
+    previous_states=tf.squeeze(previous_states,axis=[1])
 
     previous_states=np.array(previous_states)
     real_previous_values=np.array(real_previous_values)
@@ -141,10 +142,9 @@ def train(buff):
     advantages=np.vstack(advantages)
     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
     advantages=tf.squeeze(advantages)
-    previous_states=np.vstack(previous_states)
+    # previous_states=np.vstack(previous_states)
     actions=np.array(actions)
-    # print(actions)
-    # exit()
+   
     for _ in range(Actor_update_steps):
       for prev_states,acts,advs in actor_iter(previous_states,actions,advantages):
         with tf.GradientTape() as tape:
@@ -160,15 +160,15 @@ for e in range(episodes):
   episode_score = 0
   done = False
   while not done:
-    state = state.reshape([1,8])
+    state = state.reshape([1,1,8])
     logits = actor_model(state)
-    a_dist = logits.numpy()
+    a_dist = logits.numpy()[0]
     
     a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
     a=a[0]
     next_state, reward, done, _ = env.step(a)
-    next_state = next_state.reshape([1,8])
+    next_state = next_state.reshape([1,1,8])
     episode_score +=reward
 
     episode_memory.append([state, a, reward, next_state, done])

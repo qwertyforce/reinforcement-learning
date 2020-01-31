@@ -35,9 +35,9 @@ for e in range(episodes):
   replay_buffer=[]
   running_add=0
   while not done:
-    state = state.reshape([1,8])
+    state = state.reshape([1,1,8])
     logits = actor_model(state)
-    a_dist = logits.numpy()
+    a_dist = logits.numpy()[0]
     env.render()
     a = np.random.choice(a_dist[0],p=a_dist[0]) # Choose random action with p = action 
     a, = np.where(a_dist[0] == a)
