@@ -45,7 +45,7 @@ env.seed(1)
 env2 = gym.make('Pendulum-v0')
 env2.seed(2)
 # env._max_episode_steps = 1000
-episodes = 10000
+episodes = 20000
 batch_size = 10
 score=0
 episode_n=[]

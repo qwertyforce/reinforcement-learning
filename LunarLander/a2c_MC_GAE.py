@@ -111,8 +111,7 @@ for e in range(episodes):
     next_state = next_state.reshape([1,1,8])
     episode_score +=reward
 
-    # if done and not(episode_score==max_score):
-    # 	running_add=-30
+
 
     episode_memory.append([state, a, reward, next_state, done])
     state=next_state
